@@ -1,0 +1,17 @@
+{
+  "name": "sensitirealign",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "csv-parse": "^4.12.0",
+    "csv-stringify": "^5.5.1",
+    "minimist": "^1.2.5",
+    "moment": "^2.29.1"
+  }
+}
