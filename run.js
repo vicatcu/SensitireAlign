@@ -13,75 +13,127 @@ function columnNumberToLetter(num) {
     return String.fromCharCode(num + 'A'.charCodeAt(0));
 }
 
+function findDrugOffsetByFilename(files) {
+  const ret = {};
+
+  for (const inputFilename of files) {
+    const inputString = fs.readFileSync(inputFilename, 'utf8');
+    const inputParsed = parse(inputString, {skip_empty_lines: true});
+
+    let drugOffset = 0;
+    let foundDate = false;
+    for (const row of inputParsed) {
+      if (foundDate) {
+        break;
+      }
+      drugOffset = 0;
+      for (const value of row) {
+          if (moment(value, 'M/DD/YYYY H:mm', true).isValid()) {
+              console.log('Found valid date string at column ' + columnNumberToLetter(drugOffset));
+              foundDate = true;
+              break;
+          }
+          drugOffset++;
+      }
+    }
+
+    if (!foundDate) {
+        throw new Error('Did not find a valid date in first row')
+    }
+    // the next column is the drug offset
+    drugOffset++;
+    console.log('Drug data starts at column ' + columnNumberToLetter(drugOffset) + `for "${inputFilename}"`);
+    ret[inputFilename] = drugOffset;
+  }
+
+  return ret;
+}
+
+function findAllUniqueDrugNames(files, drugOffsets) {
+  const uniqueDrugs = new Set();
+  for (const inputFilename of files) {
+    const inputString = fs.readFileSync(inputFilename, 'utf8');
+    const inputParsed = parse(inputString, {skip_empty_lines: true});
+    const drugOffset = drugOffsets[inputFilename];
+    for (const row of inputParsed) {
+        for (let ii = drugOffset; ii < row.length; ii += 3) {
+            if (row[ii]) {
+                uniqueDrugs.add(row[ii]);
+            }
+        }
+    }
+  }
+  const drugNames = Array.from(uniqueDrugs);
+  console.log('Unique drugs: ', JSON.stringify(drugNames));
+  return drugNames;
+}
+
+function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
+  console.log('');
+  console.log('############################################################################################################');
+  console.log(`# Processing file "${inputFilename}"...`);
+  console.log('############################################################################################################');
+  console.log('');
+
+  const inputString = fs.readFileSync(inputFilename, 'utf8');
+  const inputParsed = parse(inputString, {skip_empty_lines: true});
+
+  // find the first column that has a valid date in it... the next column
+  // is where the drugs start, and then they appear as triplets
+
+
+  const outputParsed = [];
+
+  console.log('Reorganizing columns');
+  let numRowsDroppedForDateViolation = 0;
+
+  for (const row of inputParsed) {
+      // a valid date is required right before the drugOffset
+      const date = row[drugOffset - 1];
+      if (!moment(date, 'M/DD/YYYY H:mm', true).isValid()) {
+        numRowsDroppedForDateViolation++;
+        continue;
+      }
+      let outputRow = row.slice(0, drugOffset); // copy up to the drug data
+      for (const drug of drugNames) {
+          const idx = row.findIndex(v => v === drug);
+          if (idx >= 0) {
+              outputRow = outputRow.concat(row.slice(idx, idx + 3));
+          } else {
+              outputRow = outputRow.concat(['', '', '']);
+          }
+      }
+      outputParsed.push(outputRow);
+  }
+
+  console.log('Done rerganizing columns');
+  console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date`);
+
+  Array.prototype.push.apply(outputRecords, outputParsed);
+}
+
 async function run() {
     try {
-        const inputString = fs.readFileSync(inputFilename, 'utf8');
-        const inputParsed = parse(inputString, {skip_empty_lines: true});
-        // find the first column that has a valid date in it... the next column
-        // is where the plates start, and then they appear as triplets
-
-        let plateOffset = 0;
-        let foundDate = false;
-        for (const row of inputParsed) {
-          if (foundDate) {
-            break;
+        let files = [];
+        if (fs.statSync(inputFilename).isDirectory()) {
+          const filesInFolder = fs.readdirSync(inputFilename);
+          console.log(`${inputFilename} is a directory... processing all ${filesInFolder.length} files within`);
+          for (const file of filesInFolder) {
+            files.push(path.resolve(inputFilename, file));
           }
-          plateOffset = 0;
-          for (const value of row) {
-              if (moment(value, 'M/DD/YYYY H:mm', true).isValid()) {
-                  console.log('Found valid date string at column ' + columnNumberToLetter(plateOffset));
-                  foundDate = true;
-                  break;
-              }
-              plateOffset++;
-          }
+        } else {
+          files = [ inputFilename ];
         }
 
-        if (!foundDate) {
-            throw new Error('Did not find a valid date in first row')
-        }
-        // the next column is the plate offset
-        plateOffset++;
-        console.log('Drug data starts at column ' + columnNumberToLetter(plateOffset));
+        const drugOffsetByFilename = findDrugOffsetByFilename(files);
+        const uniqueDrugNames = findAllUniqueDrugNames(files, drugOffsetByFilename);
 
-        const uniquePlates = new Set();
-        for (const row of inputParsed) {
-            for (let ii = plateOffset; ii < row.length; ii += 3) {
-                if (row[ii]) {
-                    uniquePlates.add(row[ii]);
-                }
-            }
+        const outputRecords = [];
+        for (const file of files) {
+          processOneFile(file, outputRecords, uniqueDrugNames, drugOffsetByFilename[file]);
         }
 
-        const plateNames = Array.from(uniquePlates).sort();
-        console.log('Unique drugs: ', JSON.stringify(plateNames));
-        const outputParsed = [];
-
-        console.log('Reorganizing columns');
-        let numRowsDroppedForDateViolation = 0;
-
-        for (const row of inputParsed) {
-            // a valid date is required right before the plateOffset
-            const date = row[plateOffset - 1];
-            if (!moment(date, 'M/DD/YYYY H:mm', true).isValid()) {
-              numRowsDroppedForDateViolation++;
-              continue;
-            }
-            let outputRow = row.slice(0, plateOffset); // copy up to the plate data
-            for (const plate of plateNames) {
-                const idx = row.findIndex(v => v === plate);
-                if (idx >= 0) {
-                    outputRow = outputRow.concat(row.slice(idx, idx + 3));
-                } else {
-                    outputRow = outputRow.concat(['', '', '']);
-                }
-            }
-            outputParsed.push(outputRow);
-        }
-
-        console.log('Done rerganizing columns');
-        console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date`);
-        outputString = stringify(outputParsed, {header: false, quoted_string: true});
+        outputString = stringify(outputRecords, {header: false, quoted_string: true});
         fs.writeFileSync(outputFilename, outputString, 'utf8');
         console.log(`Done writing file "${outputFilename}"`);
     } catch (e) {
