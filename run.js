@@ -5,6 +5,7 @@ const parse = require('csv-parse/lib/sync');
 const stringify = require('csv-stringify/lib/sync');
 const path = require('path');
 const moment = require('moment');
+const inputEncoding = argv.e || argv.encoding || 'utf16le';
 
 const inputFilename = path.resolve('./', argv.i || argv.input || 'sensititre.txt');
 const outputFilename = path.resolve('./', argv.o || argv.output || 'output.csv');
@@ -17,7 +18,7 @@ function findDrugOffsetByFilename(files) {
   const ret = {};
 
   for (const inputFilename of files) {
-    const inputString = fs.readFileSync(inputFilename, 'utf16le');
+    const inputString = fs.readFileSync(inputFilename, inputEncoding);
     const inputParsed = parse(inputString, parseOpts);
 
     let drugOffset = 0;
@@ -52,7 +53,7 @@ function findDrugOffsetByFilename(files) {
 function findAllUniqueDrugNames(files, drugOffsets) {
   const uniqueDrugs = new Set();
   for (const inputFilename of files) {
-    const inputString = fs.readFileSync(inputFilename, 'utf16le');
+    const inputString = fs.readFileSync(inputFilename, inputEncoding);
     const inputParsed = parse(inputString, parseOpts);
     const drugOffset = drugOffsets[inputFilename];
     for (const row of inputParsed) {
@@ -75,7 +76,7 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
   console.log('############################################################################################################');
   console.log('');
 
-  const inputString = fs.readFileSync(inputFilename, 'utf16le');
+  const inputString = fs.readFileSync(inputFilename, inputEncoding);
   const inputParsed = parse(inputString, parseOpts);
 
   // find the first column that has a valid date in it... the next column
