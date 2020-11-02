@@ -6,6 +6,7 @@ const stringify = require('csv-stringify/lib/sync');
 const path = require('path');
 const moment = require('moment');
 const inputEncoding = argv.e || argv.encoding || 'utf16le';
+const dateFormat = 'YYYY-MM-DD HH:mm:ss';
 
 const inputFilename = path.resolve('./', argv.i || argv.input || 'sensititre.txt');
 const outputFilename = path.resolve('./', argv.o || argv.output || 'output.csv');
@@ -29,7 +30,7 @@ function findDrugOffsetByFilename(files) {
       }
       drugOffset = 0;
       for (const value of row) {
-          if (moment(value, 'YYYY-MM-DD HH:mm:ss', true).isValid()) {
+          if (moment(value, dateFormat, true).isValid()) {
               console.log('Found valid date string at column ' + columnNumberToLetter(drugOffset));
               foundDate = true;
               break;
@@ -58,7 +59,7 @@ function findAllUniqueDrugNames(files, drugOffsets) {
     const drugOffset = drugOffsets[inputFilename];
     for (const row of inputParsed) {
         for (let ii = drugOffset; ii < row.length; ii += 3) {
-            if (row[ii]) {
+            if (row[ii] && (row[ii] !== '\u0000')) {
                 uniqueDrugs.add(row[ii]);
             }
         }
@@ -82,16 +83,13 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
   // find the first column that has a valid date in it... the next column
   // is where the drugs start, and then they appear as triplets
 
-
-  const outputParsed = [];
-
   console.log('Reorganizing columns');
   let numRowsDroppedForDateViolation = 0;
 
   for (const row of inputParsed) {
       // a valid date is required right before the drugOffset
       const date = row[drugOffset - 1];
-      if (!moment(date, 'M/DD/YYYY H:mm', true).isValid()) {
+      if (!moment(date, dateFormat, true).isValid()) {
         numRowsDroppedForDateViolation++;
         continue;
       }
@@ -104,13 +102,11 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
               outputRow = outputRow.concat(['', '', '']);
           }
       }
-      outputParsed.push(outputRow);
+      outputRecords.push(outputRow);
   }
 
-  console.log('Done rerganizing columns');
+  console.log('Done reorganizing columns');
   console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date`);
-
-  Array.prototype.push.apply(outputRecords, outputParsed);
 }
 
 async function run() {
