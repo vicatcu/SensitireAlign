@@ -65,7 +65,7 @@ function findAllUniqueDrugNames(files, drugOffsets) {
         }
     }
   }
-  const drugNames = Array.from(uniqueDrugs);
+  const drugNames = Array.from(uniqueDrugs).sort();
   console.log('Unique drugs: ', JSON.stringify(drugNames));
   return drugNames;
 }
