@@ -109,7 +109,7 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
 
   console.log('Done reorganizing columns');
   console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date.`);
-  console.log(`${inputParsed.length - numRowsDroppedForDateViolation} rows were included.`)
+  console.log(`Included ${inputParsed.length - numRowsDroppedForDateViolation} rows.`)
   console.log(`File contained data from years: ${JSON.stringify(Array.from(years))}.`);
 }
 
