@@ -70,13 +70,15 @@ function findAllUniqueDrugNames(files, drugOffsets) {
   return drugNames;
 }
 
-function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
+function processOneFile(inputFilename, outputRecords, drugNames, drugOffsetByFilename) {
   console.log('');
   console.log('############################################################################################################');
   console.log(`# Processing file "${inputFilename}"...`);
   console.log('############################################################################################################');
   console.log('');
 
+  const worstCaseOffset = Object.keys(drugOffsetByFilename).reduce((t, v) => Math.max(t, drugOffsetByFilename[v]), 0);
+  const drugOffset = drugOffsetByFilename[inputFilename];
   const inputString = fs.readFileSync(inputFilename, inputEncoding);
   const inputParsed = parse(inputString, parseOpts);
 
@@ -94,7 +96,16 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
         numRowsDroppedForDateViolation++;
         continue;
       }
-      let outputRow = row.slice(0, drugOffset); // copy up to the drug data
+      let outputRow = row.slice(0, drugOffset - 1); // copy up to the drug data
+
+      // pad the output row with empty cells
+      for (let ii = 0; ii < worstCaseOffset - drugOffset; ii++) {
+        outputRow.push('');
+      }
+
+      // then push the date
+      outputRow.push(row[drugOffset - 1]);
+
       for (const drug of drugNames) {
           const idx = row.findIndex(v => v === drug);
           if (idx >= 0) {
@@ -131,7 +142,7 @@ async function run() {
 
         let outputRecords = [];
         for (const file of files) {
-          processOneFile(file, outputRecords, uniqueDrugNames, drugOffsetByFilename[file]);
+          processOneFile(file, outputRecords, uniqueDrugNames, drugOffsetByFilename);
         }
 
         console.log('Sorting records by date...');
