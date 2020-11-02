@@ -6,7 +6,7 @@ const stringify = require('csv-stringify/lib/sync');
 const path = require('path');
 const moment = require('moment');
 const inputEncoding = argv.e || argv.encoding || 'utf16le';
-const dateFormat = 'YYYY-MM-DD HH:mm:ss';
+const dateFormat = argv.d || argv.date || 'YYYY-MM-DD HH:mm:ss';
 
 const inputFilename = path.resolve('./', argv.i || argv.input || 'sensititre.txt');
 const outputFilename = path.resolve('./', argv.o || argv.output || 'output.csv');
