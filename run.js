@@ -8,7 +8,7 @@ const moment = require('moment');
 
 const inputFilename = path.resolve('./', argv.i || argv.input || 'sensititre.txt');
 const outputFilename = path.resolve('./', argv.o || argv.output || 'output.csv');
-
+const parseOpts = {skip_empty_lines: true, delimiter: '\t', relaxColumnCount: true, cast: true, trim: true};
 function columnNumberToLetter(num) {
     return String.fromCharCode(num + 'A'.charCodeAt(0));
 }
@@ -17,8 +17,8 @@ function findDrugOffsetByFilename(files) {
   const ret = {};
 
   for (const inputFilename of files) {
-    const inputString = fs.readFileSync(inputFilename, 'utf8');
-    const inputParsed = parse(inputString, {skip_empty_lines: true});
+    const inputString = fs.readFileSync(inputFilename, 'utf16le');
+    const inputParsed = parse(inputString, parseOpts);
 
     let drugOffset = 0;
     let foundDate = false;
@@ -28,7 +28,7 @@ function findDrugOffsetByFilename(files) {
       }
       drugOffset = 0;
       for (const value of row) {
-          if (moment(value, 'M/DD/YYYY H:mm', true).isValid()) {
+          if (moment(value, 'YYYY-MM-DD HH:mm:ss', true).isValid()) {
               console.log('Found valid date string at column ' + columnNumberToLetter(drugOffset));
               foundDate = true;
               break;
@@ -38,7 +38,7 @@ function findDrugOffsetByFilename(files) {
     }
 
     if (!foundDate) {
-        throw new Error('Did not find a valid date in first row')
+        throw new Error(`Did not find a valid date in file "${inputFilename}"`);
     }
     // the next column is the drug offset
     drugOffset++;
@@ -52,8 +52,8 @@ function findDrugOffsetByFilename(files) {
 function findAllUniqueDrugNames(files, drugOffsets) {
   const uniqueDrugs = new Set();
   for (const inputFilename of files) {
-    const inputString = fs.readFileSync(inputFilename, 'utf8');
-    const inputParsed = parse(inputString, {skip_empty_lines: true});
+    const inputString = fs.readFileSync(inputFilename, 'utf16le');
+    const inputParsed = parse(inputString, parseOpts);
     const drugOffset = drugOffsets[inputFilename];
     for (const row of inputParsed) {
         for (let ii = drugOffset; ii < row.length; ii += 3) {
@@ -75,8 +75,8 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
   console.log('############################################################################################################');
   console.log('');
 
-  const inputString = fs.readFileSync(inputFilename, 'utf8');
-  const inputParsed = parse(inputString, {skip_empty_lines: true});
+  const inputString = fs.readFileSync(inputFilename, 'utf16le');
+  const inputParsed = parse(inputString, parseOpts);
 
   // find the first column that has a valid date in it... the next column
   // is where the drugs start, and then they appear as triplets
