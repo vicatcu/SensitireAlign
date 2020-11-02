@@ -12,7 +12,7 @@ const inputFilename = path.resolve('./', argv.i || argv.input || 'sensititre.txt
 const outputFilename = path.resolve('./', argv.o || argv.output || 'output.csv');
 const parseOpts = {skip_empty_lines: true, delimiter: '\t', relaxColumnCount: true, cast: true, trim: true};
 function columnNumberToLetter(num) {
-    return String.fromCharCode(num + 'A'.charCodeAt(0));
+    return String.fromCharCode(num + 'A'.charCodeAt(0)).toUpperCase();
 }
 
 function findDrugOffsetByFilename(files) {
@@ -44,7 +44,7 @@ function findDrugOffsetByFilename(files) {
     }
     // the next column is the drug offset
     drugOffset++;
-    console.log('Drug data starts at column ' + columnNumberToLetter(drugOffset) + `for "${inputFilename}"`);
+    console.log('Drug data starts at column ' + columnNumberToLetter(drugOffset) + ` for "${inputFilename}"`);
     ret[inputFilename] = drugOffset;
   }
 
@@ -89,7 +89,8 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
   for (const row of inputParsed) {
       // a valid date is required right before the drugOffset
       const date = row[drugOffset - 1];
-      if (!moment(date, dateFormat, true).isValid()) {
+      const m = moment(date, dateFormat, true);
+      if (!m.isValid()) {
         numRowsDroppedForDateViolation++;
         continue;
       }
@@ -102,7 +103,7 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
               outputRow = outputRow.concat(['', '', '']);
           }
       }
-      outputRecords.push(outputRow);
+      outputRecords.push({date: m, outputRow});
   }
 
   console.log('Done reorganizing columns');
@@ -125,10 +126,21 @@ async function run() {
         const drugOffsetByFilename = findDrugOffsetByFilename(files);
         const uniqueDrugNames = findAllUniqueDrugNames(files, drugOffsetByFilename);
 
-        const outputRecords = [];
+        let outputRecords = [];
         for (const file of files) {
           processOneFile(file, outputRecords, uniqueDrugNames, drugOffsetByFilename[file]);
         }
+
+        console.log('Sorting records by date...');
+        outputRecords = outputRecords.sort((a, b) => {
+          if (a.date.isBefore(b)) {
+            return -1;
+          } else if (a.date.isAfter(b)) {
+            return +1;
+          } else {
+            return 0;
+          }
+        }).map(v => v.outputRow);
 
         outputString = stringify(outputRecords, {header: false, quoted_string: true});
         fs.writeFileSync(outputFilename, outputString, 'utf8');
