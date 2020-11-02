@@ -85,7 +85,7 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
 
   console.log('Reorganizing columns');
   let numRowsDroppedForDateViolation = 0;
-
+  const years = new Set();
   for (const row of inputParsed) {
       // a valid date is required right before the drugOffset
       const date = row[drugOffset - 1];
@@ -103,11 +103,14 @@ function processOneFile(inputFilename, outputRecords, drugNames, drugOffset) {
               outputRow = outputRow.concat(['', '', '']);
           }
       }
+      years.add(m.year());
       outputRecords.push({date: m, outputRow});
   }
 
   console.log('Done reorganizing columns');
-  console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date`);
+  console.log(`Dropped ${numRowsDroppedForDateViolation} rows because of missing date.`);
+  console.log(`${inputParsed.length - numRowsDroppedForDateViolation} rows were included.`)
+  console.log(`File contained data from years: ${JSON.stringify(Array.from(years))}.`);
 }
 
 async function run() {
@@ -133,9 +136,9 @@ async function run() {
 
         console.log('Sorting records by date...');
         outputRecords = outputRecords.sort((a, b) => {
-          if (a.date.isBefore(b)) {
+          if (a.date.isBefore(b.date)) {
             return -1;
-          } else if (a.date.isAfter(b)) {
+          } else if (a.date.isAfter(b.date)) {
             return +1;
           } else {
             return 0;
